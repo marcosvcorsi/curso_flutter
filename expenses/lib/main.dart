@@ -1,7 +1,10 @@
+import 'dart:io';
+
 import 'package:expenses/components/chart.dart';
 import 'package:expenses/components/transaction_form.dart';
 import 'package:expenses/components/transaction_list.dart';
 import 'package:expenses/models/transaction.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'dart:math';
 
@@ -12,6 +15,8 @@ main() => runApp(ExpensesApp());
 class ExpensesApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    // SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       home: MyHomePage(),
@@ -50,6 +55,7 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   final List<Transaction> _transactions = [];
+  bool _showChart = false;
 
   @override
   void initState() {
@@ -122,35 +128,75 @@ class _MyHomePageState extends State<MyHomePage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          'Despesas Pessoais',
-          style: TextStyle(
-            fontFamily: 'OpenSans',
-          ),
-        ),
-        actions: <Widget>[
-          IconButton(
-            icon: Icon(Icons.add),
-            onPressed: () => _openTransacationFormModal(context),
+    final mediaQuery = MediaQuery.of(context);
+    bool isLandscape = mediaQuery.orientation == Orientation.landscape;
+
+    final PreferredSizeWidget appBar = Platform.isIOS
+        ? CupertinoNavigationBar(
+            middle: Text('Despesas Pessoais'),
+            trailing: Text('Teste'),
           )
+        : AppBar(
+            title: Text(
+              'Despesas Pessoais',
+              style: TextStyle(
+                fontFamily: 'OpenSans',
+              ),
+            ),
+            actions: <Widget>[
+              if (isLandscape)
+                IconButton(
+                  icon: Icon(_showChart ? Icons.list : Icons.show_chart),
+                  onPressed: () {
+                    setState(() {
+                      _showChart = !_showChart;
+                    });
+                  },
+                ),
+              IconButton(
+                icon: Icon(Icons.add),
+                onPressed: () => _openTransacationFormModal(context),
+              ),
+            ],
+            centerTitle: true,
+          );
+
+    final availableHeight = mediaQuery.size.height -
+        appBar.preferredSize.height -
+        mediaQuery.padding.top;
+
+    final bodyPage = SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          if (_showChart || !isLandscape)
+            Container(
+              height: availableHeight * (isLandscape ? 0.7 : 0.3),
+              child: Chart(_recentTransactions),
+            ),
+          if (!_showChart || !isLandscape)
+            Container(
+              height: availableHeight * (isLandscape ? 0.9 : 0.7),
+              child: TransactionList(_transactions, _deleteTransaction),
+            ),
         ],
-        centerTitle: true,
-      ),
-      body: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: <Widget>[
-            Chart(_recentTransactions),
-            TransactionList(_transactions, _deleteTransaction),
-          ],
-        ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        child: Icon(Icons.add),
-        onPressed: () => _openTransacationFormModal(context),
       ),
     );
+
+    return Platform.isIOS
+        ? CupertinoPageScaffold(
+            navigationBar: appBar,
+            child: bodyPage,
+          )
+        : Scaffold(
+            appBar: appBar,
+            body: bodyPage,
+            floatingActionButton: Platform.isAndroid
+                ? FloatingActionButton(
+                    child: Icon(Icons.add),
+                    onPressed: () => _openTransacationFormModal(context),
+                  )
+                : null,
+          );
   }
 }
